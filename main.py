@@ -21,18 +21,18 @@ def process_image(input_path, output_path):
         white_balanced = white_patch_white_balance(cv2.merge([b, g, r]))
 
         # 步驟 3: 適度飽和度調整
-        saturated_image = increase_saturation(white_balanced, saturation_scale=1.4)
+        saturated_image = increase_saturation(white_balanced, saturation_scale=1.8)
 
         # 步驟 4: 柔化銳利感 (輕度高斯模糊)
-        smoothed_image = cv2.GaussianBlur(saturated_image, (3, 3), sigmaX=1)
+        # smoothed_image = cv2.GaussianBlur(saturated_image, (3, 3), sigmaX=1)
 
         # 步驟 5: 填充白色背景
         alpha_factor = a / 255.0
-        white_background = np.ones_like(smoothed_image, dtype=np.uint8) * 255
+        white_background = np.ones_like(saturated_image, dtype=np.uint8) * 255
 
         for c in range(3):  # RGB 通道
             white_background[:, :, c] = np.clip(
-                (1 - alpha_factor) * 255 + alpha_factor * smoothed_image[:, :, c],
+                (1 - alpha_factor) * 255 + alpha_factor * saturated_image[:, :, c],
                 0,
                 255
             ).astype(np.uint8)
