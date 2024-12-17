@@ -3,10 +3,10 @@ from rembg import remove
 import cv2
 import numpy as np
 
-# 去背 -> 白平衡 -> 提升對比 -> 填充白色背景
+# 去背 -> 白點法白平衡 -> 適度對比度 -> 適度飽和度 -> 柔化處理 -> 填充白色背景
 def process_image(input_path, output_path):
     """
-    去背、白點法白平衡、提升對比度，最後填充白色背景。
+    去背、白點法白平衡、適度提升飽和度、柔化銳利感，最後填充白色背景。
     """
     with open(input_path, "rb") as f:
         input_image = f.read()
@@ -20,16 +20,19 @@ def process_image(input_path, output_path):
         b, g, r, a = cv2.split(image_np)
         white_balanced = white_patch_white_balance(cv2.merge([b, g, r]))
 
-        # 步驟 3: 提升對比度 (CLAHE)
-        contrast_enhanced = enhance_contrast(white_balanced)
+        # 步驟 3: 適度飽和度調整
+        saturated_image = increase_saturation(white_balanced, saturation_scale=1.4)
 
-        # 步驟 4: 最後填充白色背景
+        # 步驟 4: 柔化銳利感 (輕度高斯模糊)
+        smoothed_image = cv2.GaussianBlur(saturated_image, (3, 3), sigmaX=1)
+
+        # 步驟 5: 填充白色背景
         alpha_factor = a / 255.0
-        white_background = np.ones_like(contrast_enhanced, dtype=np.uint8) * 255
+        white_background = np.ones_like(smoothed_image, dtype=np.uint8) * 255
 
         for c in range(3):  # RGB 通道
             white_background[:, :, c] = np.clip(
-                (1 - alpha_factor) * 255 + alpha_factor * contrast_enhanced[:, :, c],
+                (1 - alpha_factor) * 255 + alpha_factor * smoothed_image[:, :, c],
                 0,
                 255
             ).astype(np.uint8)
@@ -52,21 +55,19 @@ def white_patch_white_balance(image):
 
     return cv2.merge([b, g, r])
 
-# 提升對比度：使用自適應直方圖均衡 (CLAHE)
-def enhance_contrast(image):
+# 提升飽和度
+def increase_saturation(image, saturation_scale=1.4):
     """
-    使用 CLAHE (自適應直方圖均衡) 提升圖片對比度。
+    提升飽和度：轉換到 HSV 色彩空間，增強飽和度 S 通道。
     """
-    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)  # 轉換到 LAB 色彩空間
-    l, a, b = cv2.split(lab)
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
 
-    # 對 L 通道進行自適應直方圖均衡
-    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-    l = clahe.apply(l)
+    # 提升飽和度
+    s = np.clip(s * saturation_scale, 0, 255).astype(np.uint8)
 
-    lab = cv2.merge([l, a, b])
-    enhanced_image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-    return enhanced_image
+    hsv = cv2.merge([h, s, v])
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
 # 批次處理圖片
 def batch_process_images(input_dir, output_dir):

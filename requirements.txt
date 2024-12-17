@@ -1,4 +1,4 @@
 opencv-python
 onnxruntime
-rembg
+rembg[gpu,cli]
 numpy
