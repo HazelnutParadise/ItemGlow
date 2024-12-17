@@ -3,41 +3,79 @@ from rembg import remove
 import cv2
 import numpy as np
 
-# 強化邊緣平滑去背，填充白色背景
-def enhanced_remove_background(input_path, output_path):
-    # 讀取圖片
+# 去背 -> 白平衡 -> 提升對比 -> 填充白色背景
+def process_image(input_path, output_path):
+    """
+    去背、白點法白平衡、提升對比度，最後填充白色背景。
+    """
     with open(input_path, "rb") as f:
         input_image = f.read()
 
+    # 步驟 1: 去背
     output_image = remove(input_image)
-
-    # 轉為 OpenCV 格式
     image_np = cv2.imdecode(np.frombuffer(output_image, np.uint8), cv2.IMREAD_UNCHANGED)
 
-    # 檢查是否有 Alpha 通道
-    if image_np.shape[2] == 4:  # RGBA 格式
-        alpha_channel = image_np[:, :, 3]
-        white_background = np.ones_like(image_np) * 255
-        white_background[:, :, :3] = image_np[:, :, :3]
+    # 步驟 2: 保留 Alpha 通道，白點法白平衡
+    if len(image_np.shape) == 3 and image_np.shape[2] == 4:  # RGBA 圖片
+        b, g, r, a = cv2.split(image_np)
+        white_balanced = white_patch_white_balance(cv2.merge([b, g, r]))
 
-        # 平滑邊緣處理 (高斯模糊)
-        alpha_blur = cv2.GaussianBlur(alpha_channel, (7, 7), 0)
-        alpha_mask = alpha_blur / 255.0
+        # 步驟 3: 提升對比度 (CLAHE)
+        contrast_enhanced = enhance_contrast(white_balanced)
 
-        # 融合白色背景
-        for c in range(3):
-            white_background[:, :, c] = (1 - alpha_mask) * 255 + alpha_mask * image_np[:, :, c]
+        # 步驟 4: 最後填充白色背景
+        alpha_factor = a / 255.0
+        white_background = np.ones_like(contrast_enhanced, dtype=np.uint8) * 255
 
-        cv2.imwrite(output_path, white_background[:, :, :3])
+        for c in range(3):  # RGB 通道
+            white_background[:, :, c] = np.clip(
+                (1 - alpha_factor) * 255 + alpha_factor * contrast_enhanced[:, :, c],
+                0,
+                255
+            ).astype(np.uint8)
+
+        cv2.imwrite(output_path, white_background)
     else:
-        cv2.imwrite(output_path, image_np)
+        print("圖片格式錯誤，無法處理！")
 
-# 批次處理整個目錄的圖片
-def batch_process_images(input_dir, output_dir, model_name="u2netp"):
+# 白點法白平衡
+def white_patch_white_balance(image):
+    """
+    白點法白平衡：使用最亮點作為白色基準。
+    """
+    b, g, r = cv2.split(image)
+    max_b, max_g, max_r = np.max(b), np.max(g), np.max(r)
+
+    b = np.clip(b * (255 / max_b), 0, 255).astype(np.uint8)
+    g = np.clip(g * (255 / max_g), 0, 255).astype(np.uint8)
+    r = np.clip(r * (255 / max_r), 0, 255).astype(np.uint8)
+
+    return cv2.merge([b, g, r])
+
+# 提升對比度：使用自適應直方圖均衡 (CLAHE)
+def enhance_contrast(image):
+    """
+    使用 CLAHE (自適應直方圖均衡) 提升圖片對比度。
+    """
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)  # 轉換到 LAB 色彩空間
+    l, a, b = cv2.split(lab)
+
+    # 對 L 通道進行自適應直方圖均衡
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+
+    lab = cv2.merge([l, a, b])
+    enhanced_image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+    return enhanced_image
+
+# 批次處理圖片
+def batch_process_images(input_dir, output_dir):
+    """
+    批次處理目錄下所有圖片。
+    """
     if not os.path.exists(output_dir):
-        os.makedirs(output_dir)  # 建立輸出資料夾
+        os.makedirs(output_dir)
 
-    # 遍歷輸入目錄內的所有圖片檔案
     for filename in os.listdir(input_dir):
         if filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
             input_path = os.path.join(input_dir, filename)
@@ -45,8 +83,7 @@ def batch_process_images(input_dir, output_dir, model_name="u2netp"):
 
             print(f"處理圖片: {filename}")
             try:
-                # 執行去背處理
-                enhanced_remove_background(input_path, output_path)
+                process_image(input_path, output_path)
                 print(f"已完成: {output_path}")
             except Exception as e:
                 print(f"處理失敗: {filename}, 錯誤訊息: {e}")
@@ -55,7 +92,7 @@ def batch_process_images(input_dir, output_dir, model_name="u2netp"):
 
 # 主程式
 if __name__ == "__main__":
-    input_directory = "input"   # 輸入圖片目錄
+    input_directory = "input"    # 輸入圖片目錄
     output_directory = "output"  # 輸出處理後圖片目錄
-    
+
     batch_process_images(input_directory, output_directory)
