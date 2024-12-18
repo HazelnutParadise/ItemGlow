@@ -9,4 +9,4 @@ COPY . .
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 # 容器啟動指令
-CMD ["python", "wbeui.py"]
+CMD ["python", "webui.py"]
