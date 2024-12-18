@@ -56,7 +56,8 @@ async def process_files(files: Any) -> str:
 
 def launch_ui():
     with gr.Blocks() as app:
-        app.title = "ItemGlow"
+        app.title = "ItemGlow 商品照片優化器 - 榛果繽紛樂"
+        app.head = "<meta name=\"description\" content=\"ItemGlow 是一個專為電商賣家設計的商品照優化器，可自動去背、調整色溫、飽和度、亮度，快速製作商品照片。\">"
         with gr.Row():
             gr.Button("前往 榛果繽紛樂", link="https://hazelnut-paradise.com")
             gr.Button("更多 Web Apps", link="https://apps.hazelnut-paradise.com")
@@ -64,7 +65,7 @@ def launch_ui():
         with gr.Row():
             gr.HTML(
                 "<h1 style=\"margin-bottom: 0;text-align: center;font-size: clamp(40px, 7vw, 100px);word-wrap: break-word;max-width: 100%;\">ItemGlow</h1>"
-                "<h2 style=\"margin-top: 0;text-align: center;font-size: clamp(25px, 4vw, 50px);\">商品照片處理器</h2>"
+                "<h2 style=\"margin-top: 0;text-align: center;font-size: clamp(25px, 4vw, 50px);\">商品照片優化器</h2>"
                 "<br />"
                 "<div style=\"margin: auto 0;\">"
                     "<h3 style=\"text-align: start;font-size: clamp(20px, 2vw, 40px);\">專屬於電商賣家</h3>"
@@ -93,7 +94,7 @@ def launch_ui():
             outputs=output
         )
     
-    app.launch(server_name="0.0.0.0", server_port=7860, favicon_path="favicon.ico")
+    app.launch(server_name="0.0.0.0", server_port=7860, ssr_mode=True, favicon_path="favicon.ico")
 
 if __name__ == "__main__":
     launch_ui()
