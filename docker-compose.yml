@@ -1,20 +1,9 @@
 services:
   app:
-    image: app-itemglow:latest
+    image: itemglow:latest
     container_name: itemglow_app
-    runtime: nvidia
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
     ports:
       - "6660:7860"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     restart: unless-stopped
 
 networks:
