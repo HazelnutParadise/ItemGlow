@@ -64,12 +64,12 @@ def launch_ui():
         
         with gr.Row():
             gr.HTML(
-                "<h1 style=\"margin-bottom: 0;text-align: center;font-size: clamp(40px, 7vw, 100px);word-wrap: break-word;max-width: 100%;\">ItemGlow</h1>"
-                "<h2 style=\"margin-top: 0;text-align: center;font-size: clamp(25px, 4vw, 50px);\">商品照片優化器</h2>"
+                "<h1 style=\"margin-bottom: 0;text-align: center;font-size: clamp(30px, 7vw, 100px);word-wrap: break-word;max-width: 100%;\">ItemGlow</h1>"
+                "<h2 style=\"margin-top: 0;text-align: center;font-size: clamp(22px, 3vw, 40px);\">商品照片優化器</h2>"
                 "<br />"
                 "<div style=\"margin: auto 0;\">"
                     "<h3 style=\"text-align: start;font-size: clamp(20px, 2vw, 40px);\">專屬於電商賣家</h3>"
-                    "<p style=\"text-align: start;font-size: clamp(16px, 2vw, 20px);\">ItemGlow 可自動將商品照片去背，並調整至合適的色溫、飽和度、亮度，幫助電商賣家輕鬆製作商品照片</p>"
+                    "<p style=\"text-align: start;font-size: clamp(16px, 2vw, 20px);\">ItemGlow 可自動將商品照片去背，並調整至合適的色溫、飽和度、亮度，幫助電商賣家輕鬆製作商品照片。</p>"
                 "</div>"
             )
             with gr.Group():
