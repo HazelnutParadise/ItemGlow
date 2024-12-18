@@ -1,6 +1,6 @@
 services:
   app:
-    image: itemglow:latest
+    image: app-itemglow:latest
     container_name: itemglow_app
     runtime: nvidia
     environment:
