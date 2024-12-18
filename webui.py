@@ -5,11 +5,12 @@ import zipfile
 import asyncio
 from pathlib import Path
 from io import BytesIO
-from main import process_multiple_images
 import datetime
 import os
+from main import process_multiple_images
+from typing import Any
 
-async def process_files(files):
+async def process_files(files: Any) -> str:
     """處理上傳的檔案並返回 ZIP"""
     with tempfile.TemporaryDirectory() as temp_dir:
         input_dir = Path(temp_dir) / "input"
