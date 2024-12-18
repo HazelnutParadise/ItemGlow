@@ -8,11 +8,11 @@ WORKDIR /app
 COPY . .
 
 # 安裝 Python 套件
-RUN pip3 install --no-cache-dir -r requirements-gpu.txt
+RUN pip install --no-cache-dir -r requirements-gpu.txt
 
 # 設定環境變數
 ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 
 # 容器啟動指令
-CMD ["python3", "wbeui.py"]
+CMD ["python", "wbeui.py"]
