@@ -1,5 +1,7 @@
 # ItemGlow 商品照片優化器
 
+![logo](https://src.hazelnut-paradise.com/ItemGlow-logo.png)
+
 ItemGlow 是一款用於優化商品照片的工具，它可以自動幫您快速地對商品照片進行去背，並調整至合適的色溫、飽和度、亮度，不用昂貴的相機或高超的拍攝技巧，就能製作出吸引人的商品照片。
 
 線上版：https://itemglow.hazelnut-paradise.com
