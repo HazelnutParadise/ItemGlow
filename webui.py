@@ -56,15 +56,29 @@ async def process_files(files: Any) -> str:
 
 def launch_ui():
     with gr.Blocks() as app:
-        gr.Markdown("## 圖片去背處理工具")
+        app.title = "ItemGlow"
+        with gr.Row():
+            gr.Button("前往 榛果繽紛樂", link="https://hazelnut-paradise.com")
+            gr.Button("更多 Web Apps", link="https://apps.hazelnut-paradise.com")
+        
+        with gr.Row():
+            gr.HTML(
+                "<h1 style=\"text-align: center;font-size: clamp(40px, 7vw, 100px);word-wrap: break-word;max-width: 100%;\">ItemGlow</h1>"
+                "<h2 style=\"text-align: center;font-size: clamp(25px, 4vw, 50px);\">商品照片處理器</h2>"
+                "<p style=\"text-align: center;font-size: clamp(16px, 2vw, 20px);\">ItemGlow 幫助電商賣家輕鬆製作商品照片</p>"
+            )
+            gr.HTML(
+                "<img src=\"https://src.hazelnut-paradise.com/ItemGlow-logo.png\" style=\"display: block;margin-left: auto;margin-right: auto;height: 100%;\">"
+            )
+        
         with gr.Row():
             file_input = gr.File(
-                label="拖曳上傳圖片或資料夾",
+                label="拖曳上傳照片",
                 file_types=["image"],
                 file_count="multiple",
                 type="filepath"
             )
-            output = gr.File(label="下載處理後的圖片")
+            output = gr.File(label="下載處理後的照片")
         
         file_input.upload(
             fn=lambda x: asyncio.run(process_files(x)),
@@ -72,7 +86,7 @@ def launch_ui():
             outputs=output
         )
     
-    app.launch(server_name="0.0.0.0", server_port=7860)
+    app.launch(server_name="0.0.0.0", server_port=7860, favicon_path="favicon.ico")
 
 if __name__ == "__main__":
     launch_ui()
