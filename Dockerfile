@@ -1,10 +1,5 @@
 FROM nvidia/cuda:12.6.3-base-ubuntu24.04
-
-# 安裝系統相依套件
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    && rm -rf /var/lib/apt/lists/*
+FROM python:3.12-slim
 
 # 設定工作目錄
 WORKDIR /app
