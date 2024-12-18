@@ -94,7 +94,7 @@ def launch_ui():
             outputs=output
         )
     
-    app.launch(server_name="0.0.0.0", server_port=7860, ssr_mode=True, favicon_path="favicon.ico")
+    app.launch(server_name="0.0.0.0", server_port=7860, favicon_path="favicon.ico")
 
 if __name__ == "__main__":
     launch_ui()
