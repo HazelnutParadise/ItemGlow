@@ -11,9 +11,30 @@ from tqdm import tqdm
 # 建立線程池
 executor = ThreadPoolExecutor()
 
+# 檢查CUDA支援
+def has_cuda_support():
+    """檢查系統是否支援CUDA"""
+    cuda_available = cv2.cuda.getCudaEnabledDeviceCount() > 0
+    print(f"CUDA支援狀態: {'可用' if cuda_available else '不可用'}")
+    return cuda_available
+
+def get_optimal_processor(image_size: tuple) -> str:
+    # """
+    # 根據圖片大小和硬體環境決定使用GPU還是CPU
+    # """
+    # try:
+    #     if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+    #         # 圖片大於 1920x1080 或批次處理時優先使用 GPU
+    #         if image_size[0] * image_size[1] > 1920 * 1080:
+    #             return "gpu"
+    # except:
+    #     pass
+    return "gpu" if has_cuda_support() else "cpu"
+
 async def process_image(input_path: str, output_path: str) -> None:
     """
     非同步處理圖片：去背、白點法白平衡、適度提升飽和度、提高亮度，最後填充白色背景。
+    自動決定使用 GPU 或 CPU 處理。
     """
     try:
         if not os.path.exists(input_path):
@@ -21,6 +42,23 @@ async def process_image(input_path: str, output_path: str) -> None:
 
         # 確保輸出目錄存在
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # 讀取圖片
+        image = cv2.imread(input_path)
+        if image is None:
+            raise ValueError(f"無法讀取圖片: {input_path}")
+
+        # 決定處理器
+        processor = get_optimal_processor(image.shape)
+        if processor == "gpu":
+            # 轉移到GPU
+            gpu_image = cv2.cuda_GpuMat()
+            gpu_image.upload(image)
+            # GPU處理...
+            result = gpu_image.download()
+        else:
+            # CPU處理
+            result = image
 
         # 非同步讀取檔案
         async with aiofiles.open(input_path, "rb") as f:
