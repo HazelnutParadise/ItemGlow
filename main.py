@@ -1,46 +1,83 @@
 import os
+import asyncio
+import aiofiles
+from concurrent.futures import ThreadPoolExecutor
 from rembg import remove
 import cv2
 import numpy as np
 from typing import Any
+from tqdm import tqdm
 
-# 去背 -> 白點法白平衡 -> 適度對比度 -> 適度飽和度 -> 填充白色背景
-def process_image(input_path: str, output_path: str) -> None:
+# 建立線程池
+executor = ThreadPoolExecutor()
+
+async def process_image(input_path: str, output_path: str) -> None:
     """
-    去背、白點法白平衡、適度提升飽和度、柔化銳利感，最後填充白色背景。
+    非同步處理圖片：去背、白點法白平衡、適度提升飽和度、提高亮度，最後填充白色背景。
     """
-    with open(input_path, "rb") as f:
-        input_image = f.read()
+    try:
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"輸入檔案不存在: {input_path}")
 
-    # 去背
-    output_image = remove(input_image)
-    image_np = cv2.imdecode(np.frombuffer(output_image, np.uint8), cv2.IMREAD_UNCHANGED)
+        # 確保輸出目錄存在
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # 保留 Alpha 通道，白點法白平衡
-    if len(image_np.shape) == 3 and image_np.shape[2] == 4:  # RGBA 圖片
-        b, g, r, a = cv2.split(image_np)
-        result_img = white_patch_white_balance(cv2.merge([b, g, r]))
+        # 非同步讀取檔案
+        async with aiofiles.open(input_path, "rb") as f:
+            input_image = await f.read()
 
-        # 適度飽和度調整
-        result_img = increase_saturation(result_img, saturation_scale=1.6)
-        
-        # 調高亮度
-        result_img = np.clip(result_img * 1.45, 0, 255).astype(np.uint8)
+        # 在線程池中執行耗時的圖片處理
+        loop = asyncio.get_event_loop()
+        output_image = await loop.run_in_executor(executor, remove, input_image)
+        image_np = await loop.run_in_executor(
+            executor,
+            lambda: cv2.imdecode(np.frombuffer(output_image, np.uint8), cv2.IMREAD_UNCHANGED)
+        )
 
-        # 填充白色背景
-        alpha_factor = a / 255.0
-        white_background = np.ones_like(result_img, dtype=np.uint8) * 255
+        # 在線程池中處理圖片
+        if len(image_np.shape) == 3 and image_np.shape[2] == 4:  # RGBA 圖片
+            b, g, r, a = cv2.split(image_np)
+            result_img = await loop.run_in_executor(
+                executor,
+                white_patch_white_balance,
+                cv2.merge([b, g, r])
+            )
 
-        for c in range(3):  # RGB 通道
-            white_background[:, :, c] = np.clip(
-                (1 - alpha_factor) * 255 + alpha_factor * result_img[:, :, c],
-                0,
-                255
-            ).astype(np.uint8)
+            # 適度飽和度調整
+            result_img = await loop.run_in_executor(
+                executor,
+                increase_saturation,
+                result_img,
+                1.6
+            )
+            
+            # 調高亮度
+            result_img = await loop.run_in_executor(
+                executor,
+                lambda: np.clip(result_img * 1.45, 0, 255).astype(np.uint8)
+            )
 
-        cv2.imwrite(output_path, white_background)
-    else:
-        print("圖片格式錯誤，無法處理！")
+            # 填充白色背景
+            alpha_factor = a / 255.0
+            white_background = np.ones_like(result_img, dtype=np.uint8) * 255
+
+            for c in range(3):  # RGB 通道
+                white_background[:, :, c] = await loop.run_in_executor(
+                    executor,
+                    lambda: np.clip(
+                        (1 - alpha_factor) * 255 + alpha_factor * result_img[:, :, c],
+                        0,
+                        255
+                    ).astype(np.uint8)
+                )
+
+            await loop.run_in_executor(executor, cv2.imwrite, output_path, white_background)
+        else:
+            print("圖片格式錯誤，無法處理！")
+
+    except Exception as e:
+        print(f"處理圖片時發生錯誤 {input_path}: {str(e)}")
+        raise
 
 # 白點法白平衡
 def white_patch_white_balance(image: Any) -> Any:
@@ -74,34 +111,53 @@ def increase_saturation(image: Any, saturation_scale: float) -> Any:
     hsv = cv2.merge([h, s, v])
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-# 批次處理圖片
-def batch_process_images(input_dir: str, output_dir: str) -> None:
-    """
-    批次處理目錄下所有圖片。
-    """
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def get_all_images(input_dir: str) -> list[str]:
+    """遞迴搜尋所有圖片檔案"""
+    image_files = []
+    for root, _, files in os.walk(input_dir):
+        for file in files:
+            if file.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                image_files.append(os.path.join(root, file))
+    return image_files
 
-    for filename in os.listdir(input_dir):
-        if filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-            input_path = os.path.join(input_dir, filename)
-            output_path = os.path.join(output_dir, f"processed_{filename}")
+async def process_multiple_images(input_dir: str, output_dir: str) -> None:
+    """批次處理多張圖片"""
+    if not os.path.exists(input_dir):
+        raise FileNotFoundError(f"輸入目錄不存在: {input_dir}")
 
-            print(f"處理圖片: {filename}")
-            try:
-                process_image(input_path, output_path)
-                print(f"已完成: {output_path}")
-            except Exception as e:
-                print(f"處理失敗: {filename}, 錯誤訊息: {e}")
+    # 確保輸出目錄存在
+    os.makedirs(output_dir, exist_ok=True)
 
-    print("所有圖片處理完成！")
+    # 取得所有圖片檔案
+    image_files = get_all_images(input_dir)
+    if not image_files:
+        print("未找到任何圖片檔案")
+        return
 
-# 主程式
-if __name__ == "__main__":
-    def main() -> None:
-        input_directory = "input"    # 輸入圖片目錄
-        output_directory = "output"  # 輸出處理後圖片目錄
-
-        batch_process_images(input_directory, output_directory)
+    print(f"找到 {len(image_files)} 個圖片檔案")
     
+    # 建立進度條
+    tasks = []
+    with tqdm(total=len(image_files), desc="處理圖片") as pbar:
+        for input_path in image_files:
+            # 保持相同的目錄結構
+            rel_path = os.path.relpath(input_path, input_dir)
+            output_path = os.path.join(output_dir, rel_path)
+            task = asyncio.create_task(process_image(input_path, output_path))
+            task.add_done_callback(lambda _: pbar.update(1))
+            tasks.append(task)
+        
+        await asyncio.gather(*tasks)
+
+def main():
+    input_dir = "input"
+    output_dir = "output"
+    
+    try:
+        asyncio.run(process_multiple_images(input_dir, output_dir))
+        print("所有圖片處理完成")
+    except Exception as e:
+        print(f"程式執行錯誤: {str(e)}")
+
+if __name__ == "__main__":
     main()

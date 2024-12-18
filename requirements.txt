@@ -1,4 +1,7 @@
 opencv-python
 onnxruntime
-rembg[gpu,cli]
+rembg
 numpy
+aiofiles
+aiohttp
+asyncer
