@@ -1,0 +1,8 @@
+opencv-python-headless-cuda
+onnxruntime
+rembg
+cupy
+aiofiles
+aiohttp
+asyncer
+gradio

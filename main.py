@@ -4,12 +4,13 @@ import aiofiles
 from concurrent.futures import ThreadPoolExecutor
 from rembg import remove
 import cv2
-import numpy as np
 from typing import Any
 from tqdm import tqdm
 
 # 建立線程池
 executor = ThreadPoolExecutor()
+
+support_cuda = False
 
 # 檢查CUDA支援
 def has_cuda_support():
@@ -17,6 +18,14 @@ def has_cuda_support():
     cuda_available = cv2.cuda.getCudaEnabledDeviceCount() > 0
     print(f"CUDA支援狀態: {'可用' if cuda_available else '不可用'}")
     return cuda_available
+
+if not has_cuda_support():
+    print("CUDA不可用，將使用CPU處理")
+    import numpy as np
+else:
+    print("CUDA可用，將使用GPU處理")
+    support_cuda = True
+    import cupy as np
 
 def get_optimal_processor(image_size: tuple) -> str:
     # """
@@ -29,7 +38,7 @@ def get_optimal_processor(image_size: tuple) -> str:
     #             return "gpu"
     # except:
     #     pass
-    return "gpu" if has_cuda_support() else "cpu"
+    return "gpu" if support_cuda else "cpu"
 
 async def process_image(input_path: str, output_path: str) -> None:
     """
