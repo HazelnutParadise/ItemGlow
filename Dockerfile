@@ -15,4 +15,4 @@ ENV NVIDIA_VISIBLE_DEVICES all
 ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 
 # 容器啟動指令
-CMD ["python3", "app.py"]
+CMD ["python3", "wbeui.py"]
