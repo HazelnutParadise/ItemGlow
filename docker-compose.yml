@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   app:
-    image: itemglow:latest
+    image: local/itemglow:latest
     container_name: itemglow_app
     runtime: nvidia
     environment:
