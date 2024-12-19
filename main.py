@@ -96,13 +96,13 @@ async def process_image(input_path: str, output_path: str) -> None:
                 executor,
                 increase_saturation,
                 result_img,
-                1.1
+                1.2
             )
             
             # 調高亮度
             result_img = await loop.run_in_executor(
                 executor,
-                lambda: np.clip(result_img * 1.4, 0, 255).astype(np.uint8)
+                lambda: np.clip(result_img * 1.25, 0, 255).astype(np.uint8)
             )
 
             # 填充白色背景

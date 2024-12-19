@@ -59,10 +59,23 @@ def adaptive_white_balance(image: Any) -> Any:
 
     return cv2.merge([b, g, r])
 
-# 使用多種白平衡算法多次處理並調整飽和度
+def brighten_shadows(image: Any, threshold: int = 60, factor: float = 1.5) -> Any:
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+    
+    # 增亮暗部
+    mask = v < threshold
+    v[mask] = np.clip(v[mask] * factor, 0, 255)
+    
+    hsv = cv2.merge([h, s, v])
+    return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+
+
+# 使用多種白平衡算法多次處理並調整暗部亮度
 def apply_multiple_white_balance(image: Any) -> Any:
     image = white_patch_white_balance(image)
     image = gray_world_white_balance(image)
     image = perfect_reflector_white_balance(image)
     image = adaptive_white_balance(image)
+    image = brighten_shadows(image, 80, 1.2)
     return image
