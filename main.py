@@ -8,6 +8,7 @@ from typing import Any
 from tqdm import tqdm
 import numpy as np
 from white_balance import apply_multiple_white_balance
+from numba import jit
 
 # 建立線程池
 executor = ThreadPoolExecutor()
@@ -16,6 +17,21 @@ SUPPORT_CUDA = False
 
 # 檢查CUDA支援
 print(f"CUDA支援狀態: {'可用' if (SUPPORT_CUDA := cv2.cuda.getCudaEnabledDeviceCount() > 0) else '不可用'}")
+
+@jit(nopython=True)
+def adjust_brightness(image: np.ndarray, factor: float) -> np.ndarray:
+    return np.clip(image * factor, 0, 255).astype(np.uint8)
+
+@jit(nopython=True)
+def fill_white_background(result_img: np.ndarray, alpha_factor: np.ndarray) -> np.ndarray:
+    white_background = np.ones_like(result_img, dtype=np.uint8) * 255
+    for c in range(3):  # RGB 通道
+        white_background[:, :, c] = np.clip(
+            (1 - alpha_factor) * 255 + alpha_factor * result_img[:, :, c],
+            0,
+            255
+        ).astype(np.uint8)
+    return white_background
 
 async def process_image(input_path: str, output_path: str) -> None:
     """
@@ -73,22 +89,19 @@ async def process_image(input_path: str, output_path: str) -> None:
             else:
                 result_img = await loop.run_in_executor(
                     executor,
-                    lambda: np.clip(result_img * 1.3, 0, 255).astype(np.uint8)
+                    adjust_brightness,
+                    result_img,
+                    1.3
                 )
 
             # 填充白色背景
             alpha_factor = a / 255.0
-            white_background = np.ones_like(result_img, dtype=np.uint8) * 255
-
-            for c in range(3):  # RGB 通道
-                white_background[:, :, c] = await loop.run_in_executor(
-                    executor,
-                    lambda: np.clip(
-                        (1 - alpha_factor) * 255 + alpha_factor * result_img[:, :, c],
-                        0,
-                        255
-                    ).astype(np.uint8)
-                )
+            white_background = await loop.run_in_executor(
+                executor,
+                fill_white_background,
+                result_img,
+                alpha_factor
+            )
 
             await loop.run_in_executor(executor, cv2.imwrite, output_path, white_background)
         else:

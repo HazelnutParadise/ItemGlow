@@ -1,6 +1,49 @@
 import cv2
 import numpy as np
 from typing import Any
+from numba import jit
+
+@jit(nopython=True)
+def adjust_channels_gray_world(b: np.ndarray, g: np.ndarray, r: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    avg_b, avg_g, avg_r = np.mean(b), np.mean(g), np.mean(r)
+    avg_gray = (avg_b + avg_g + avg_r) / 3
+
+    b = np.clip(b * (avg_gray / avg_b), 0, 255).astype(np.uint8)
+    g = np.clip(g * (avg_gray / avg_g), 0, 255).astype(np.uint8)
+    r = np.clip(r * (avg_gray / avg_r), 0, 255).astype(np.uint8)
+
+    return b, g, r
+
+@jit(nopython=True)
+def adjust_channels_perfect_reflector(b: np.ndarray, g: np.ndarray, r: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    max_b, max_g, max_r = np.max(b), np.max(g), np.max(r)
+
+    b = np.clip(b * (255 / max_b), 0, 255).astype(np.uint8)
+    g = np.clip(g * (255 / max_g), 0, 255).astype(np.uint8)
+    r = np.clip(r * (255 / max_r), 0, 255).astype(np.uint8)
+
+    return b, g, r
+
+@jit(nopython=True)
+def adjust_channels_white_patch(b: np.ndarray, g: np.ndarray, r: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    max_b, max_g, max_r = np.max(b), np.max(g), np.max(r)
+
+    b = np.clip(b * (255 / max_b), 0, 255).astype(np.uint8)
+    g = np.clip(g * (255 / max_g), 0, 255).astype(np.uint8)
+    r = np.clip(r * (255 / max_r), 0, 255).astype(np.uint8)
+
+    return b, g, r
+
+@jit(nopython=True)
+def adjust_channels_adaptive(b: np.ndarray, g: np.ndarray, r: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    avg_b, avg_g, avg_r = np.mean(b), np.mean(g), np.mean(r)
+    avg_gray = (avg_b + avg_g + avg_r) / 3
+
+    b = np.clip(b * (avg_gray / avg_b), 0, 255).astype(np.uint8)
+    g = np.clip(g * (avg_gray / avg_g), 0, 255).astype(np.uint8)
+    r = np.clip(r * (avg_gray / avg_r), 0, 255).astype(np.uint8)
+
+    return b, g, r
 
 # 灰度世界假設白平衡
 def gray_world_white_balance(image: Any, support_cuda: bool) -> Any:
@@ -22,13 +65,7 @@ def gray_world_white_balance(image: Any, support_cuda: bool) -> Any:
         result = gpu_result.download()
     else:
         b, g, r = cv2.split(image)
-        avg_b, avg_g, avg_r = np.mean(b), np.mean(g), np.mean(r)
-        avg_gray = (avg_b + avg_g + avg_r) / 3
-
-        b = np.clip(b * (avg_gray / avg_b), 0, 255).astype(np.uint8)
-        g = np.clip(g * (avg_gray / avg_g), 0, 255).astype(np.uint8)
-        r = np.clip(r * (avg_gray / avg_r), 0, 255).astype(np.uint8)
-
+        b, g, r = adjust_channels_gray_world(b, g, r)
         result = cv2.merge([b, g, r])
 
     return result
@@ -52,12 +89,7 @@ def perfect_reflector_white_balance(image: Any, support_cuda: bool) -> Any:
         result = gpu_result.download()
     else:
         b, g, r = cv2.split(image)
-        max_b, max_g, max_r = np.max(b), np.max(g), np.max(r)
-
-        b = np.clip(b * (255 / max_b), 0, 255).astype(np.uint8)
-        g = np.clip(g * (255 / max_g), 0, 255).astype(np.uint8)
-        r = np.clip(r * (255 / max_r), 0, 255).astype(np.uint8)
-
+        b, g, r = adjust_channels_perfect_reflector(b, g, r)
         result = cv2.merge([b, g, r])
 
     return result
@@ -81,12 +113,7 @@ def white_patch_white_balance(image: Any, support_cuda: bool) -> Any:
         result = gpu_result.download()
     else:
         b, g, r = cv2.split(image)
-        max_b, max_g, max_r = np.max(b), np.max(g), np.max(r)
-
-        b = np.clip(b * (255 / max_b), 0, 255).astype(np.uint8)
-        g = np.clip(g * (255 / max_g), 0, 255).astype(np.uint8)
-        r = np.clip(r * (255 / max_r), 0, 255).astype(np.uint8)
-
+        b, g, r = adjust_channels_white_patch(b, g, r)
         result = cv2.merge([b, g, r])
 
     return result
@@ -110,18 +137,8 @@ def adaptive_white_balance(image: Any, support_cuda: bool) -> Any:
         gpu_result = cv2.cuda.merge([b, g, r])
         result = gpu_result.download()
     else:
-        result = image.copy()
-        b, g, r = cv2.split(result)
-
-        avg_b = np.mean(b)
-        avg_g = np.mean(g)
-        avg_r = np.mean(r)
-        avg_gray = (avg_b + avg_g + avg_r) / 3
-
-        b = np.clip(b * (avg_gray / avg_b), 0, 255).astype(np.uint8)
-        g = np.clip(g * (avg_gray / avg_g), 0, 255).astype(np.uint8)
-        r = np.clip(r * (avg_gray / avg_r), 0, 255).astype(np.uint8)
-
+        b, g, r = cv2.split(image)
+        b, g, r = adjust_channels_adaptive(b, g, r)
         result = cv2.merge([b, g, r])
 
     return result
@@ -136,7 +153,6 @@ def brighten_shadows(image: Any, threshold: int = 60, factor: float = 1.5) -> An
     
     hsv = cv2.merge([h, s, v])
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
 
 # 使用多種白平衡算法多次處理並調整暗部亮度
 def apply_multiple_white_balance(image: Any, support_cuda: bool) -> Any:
