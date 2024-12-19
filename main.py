@@ -6,40 +6,16 @@ from rembg import remove
 import cv2
 from typing import Any
 from tqdm import tqdm
+import numpy as np
 from white_balance import apply_multiple_white_balance
 
 # 建立線程池
 executor = ThreadPoolExecutor()
 
-support_cuda = False
+SUPPORT_CUDA = False
 
 # 檢查CUDA支援
-def has_cuda_support():
-    """檢查系統是否支援CUDA"""
-    cuda_available = cv2.cuda.getCudaEnabledDeviceCount() > 0
-    print(f"CUDA支援狀態: {'可用' if cuda_available else '不可用'}")
-    return cuda_available
-
-if not has_cuda_support():
-    print("CUDA不可用，將使用CPU處理")
-    import numpy as np
-else:
-    print("CUDA可用，將使用GPU處理")
-    support_cuda = True
-    import cupy as np
-
-def get_optimal_processor(image_size: tuple) -> str:
-    # """
-    # 根據圖片大小和硬體環境決定使用GPU還是CPU
-    # """
-    # try:
-    #     if cv2.cuda.getCudaEnabledDeviceCount() > 0:
-    #         # 圖片大於 1920x1080 或批次處理時優先使用 GPU
-    #         if image_size[0] * image_size[1] > 1920 * 1080:
-    #             return "gpu"
-    # except:
-    #     pass
-    return "gpu" if support_cuda else "cpu"
+print(f"CUDA支援狀態: {'可用' if (SUPPORT_CUDA := cv2.cuda.getCudaEnabledDeviceCount() > 0) else '不可用'}")
 
 async def process_image(input_path: str, output_path: str) -> None:
     """
@@ -57,18 +33,6 @@ async def process_image(input_path: str, output_path: str) -> None:
         image = cv2.imread(input_path)
         if image is None:
             raise ValueError(f"無法讀取圖片: {input_path}")
-
-        # 決定處理器
-        processor = get_optimal_processor(image.shape)
-        if processor == "gpu":
-            # 轉移到GPU
-            gpu_image = cv2.cuda_GpuMat()
-            gpu_image.upload(image)
-            # GPU處理...
-            result = gpu_image.download()
-        else:
-            # CPU處理
-            result = image
 
         # 非同步讀取檔案
         async with aiofiles.open(input_path, "rb") as f:
@@ -91,18 +55,18 @@ async def process_image(input_path: str, output_path: str) -> None:
                 cv2.merge([b, g, r])
             )
 
-            # 適度飽和度調整
+            # 飽和度
             result_img = await loop.run_in_executor(
                 executor,
                 increase_saturation,
                 result_img,
-                1.2
+                1
             )
             
             # 調高亮度
             result_img = await loop.run_in_executor(
                 executor,
-                lambda: np.clip(result_img * 1.25, 0, 255).astype(np.uint8)
+                lambda: np.clip(result_img * 1.3, 0, 255).astype(np.uint8)
             )
 
             # 填充白色背景
