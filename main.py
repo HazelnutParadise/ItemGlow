@@ -6,6 +6,7 @@ from rembg import remove
 import cv2
 from typing import Any
 from tqdm import tqdm
+from white_balance import apply_multiple_white_balance
 
 # 建立線程池
 executor = ThreadPoolExecutor()
@@ -86,7 +87,7 @@ async def process_image(input_path: str, output_path: str) -> None:
             b, g, r, a = cv2.split(image_np)
             result_img = await loop.run_in_executor(
                 executor,
-                white_patch_white_balance,
+                apply_multiple_white_balance,
                 cv2.merge([b, g, r])
             )
 
@@ -95,13 +96,13 @@ async def process_image(input_path: str, output_path: str) -> None:
                 executor,
                 increase_saturation,
                 result_img,
-                1.6
+                1.1
             )
             
             # 調高亮度
             result_img = await loop.run_in_executor(
                 executor,
-                lambda: np.clip(result_img * 1.45, 0, 255).astype(np.uint8)
+                lambda: np.clip(result_img * 1.4, 0, 255).astype(np.uint8)
             )
 
             # 填充白色背景
@@ -125,24 +126,6 @@ async def process_image(input_path: str, output_path: str) -> None:
     except Exception as e:
         print(f"處理圖片時發生錯誤 {input_path}: {str(e)}")
         raise
-
-# 白點法白平衡
-def white_patch_white_balance(image: Any) -> Any:
-    """
-    白點法白平衡：使用最亮點作為白色基準。
-    """
-    b, g, r = cv2.split(image)
-    max_b, max_g, max_r = np.max(b), np.max(g), np.max(r)
-
-    b = np.clip(b * (255 / max_b), 0, 255).astype(np.uint8)
-    g = np.clip(g * (255 / max_g), 0, 255).astype(np.uint8)
-    r = np.clip(r * (255 / max_r), 0, 255).astype(np.uint8)
-    
-    # 削弱藍色跟綠色通道
-    b = np.clip(b * 0.8, 0, 255).astype(np.uint8)
-    g = np.clip(g * 0.85, 0, 255).astype(np.uint8)
-
-    return cv2.merge([b, g, r])
 
 # 提升飽和度
 def increase_saturation(image: Any, saturation_scale: float) -> Any:
