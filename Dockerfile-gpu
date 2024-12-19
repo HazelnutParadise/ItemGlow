@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
 
 # 設定工作目錄
 WORKDIR /app
@@ -6,7 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     python3.12 \
     python3-pip \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     cmake \
     git \
@@ -32,7 +32,11 @@ RUN git clone https://github.com/opencv/opencv.git && \
     ldconfig
 
 # 複製需要的檔案
-COPY . .
+ADD main.py /app
+ADD webui.py /app
+ADD white_balance.py /app
+ADD requirements-gpu.txt /app
+ADD favicon.ico /app
 
 # 安裝 Python 套件
 RUN pip3 install --no-cache-dir -r requirements-gpu.txt
