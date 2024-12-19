@@ -1,0 +1,16 @@
+services:
+  app:
+    image: itemglow:latest
+    container_name: itemglow_app
+    ports:
+      - "6660:7860"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
+networks:
+  default:
+    driver: bridge
