@@ -82,7 +82,7 @@ def launch_ui():
         with gr.Row():
             file_input = gr.File(
                 label="拖曳上傳照片",
-                file_types=["image"],
+                file_types=["image", ".webp"],
                 file_count="multiple",
                 type="filepath"
             )
