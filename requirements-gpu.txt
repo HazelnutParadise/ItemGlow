@@ -1,6 +1,6 @@
 onnxruntime
 rembg
-cupy
+numpy
 aiofiles
 aiohttp
 asyncer
