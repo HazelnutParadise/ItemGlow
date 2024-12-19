@@ -52,7 +52,8 @@ async def process_image(input_path: str, output_path: str) -> None:
             result_img = await loop.run_in_executor(
                 executor,
                 apply_multiple_white_balance,
-                cv2.merge([b, g, r])
+                cv2.merge([b, g, r]),
+                SUPPORT_CUDA
             )
 
             # 飽和度
@@ -64,10 +65,16 @@ async def process_image(input_path: str, output_path: str) -> None:
             )
             
             # 調高亮度
-            result_img = await loop.run_in_executor(
-                executor,
-                lambda: np.clip(result_img * 1.3, 0, 255).astype(np.uint8)
-            )
+            if SUPPORT_CUDA:
+                gpu_img = cv2.cuda_GpuMat()
+                gpu_img.upload(result_img)
+                gpu_img = cv2.cuda.multiply(gpu_img, 1.3)
+                result_img = gpu_img.download()
+            else:
+                result_img = await loop.run_in_executor(
+                    executor,
+                    lambda: np.clip(result_img * 1.3, 0, 255).astype(np.uint8)
+                )
 
             # 填充白色背景
             alpha_factor = a / 255.0
