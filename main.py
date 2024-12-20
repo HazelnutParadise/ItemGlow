@@ -84,10 +84,11 @@ async def process_image(input_path: str, output_path: str) -> None:
                 executor,
                 increase_saturation,
                 result_img,
-                1
+                1.3
             )
             
             # 調高亮度
+            brightness_multiplier = 1.8
             if SUPPORT_CUDA:
                 b_device = cuda.to_device(result_img[:, :, 0].astype(np.float32))
                 g_device = cuda.to_device(result_img[:, :, 1].astype(np.float32))
@@ -98,7 +99,7 @@ async def process_image(input_path: str, output_path: str) -> None:
                 blockspergrid_y = int(np.ceil(result_img.shape[1] / threadsperblock[1]))
                 blockspergrid = (blockspergrid_x, blockspergrid_y)
 
-                adjust_brightness_cuda[blockspergrid, threadsperblock](b_device, g_device, r_device, 1.3)
+                adjust_brightness_cuda[blockspergrid, threadsperblock](b_device, g_device, r_device, brightness_multiplier)
 
                 result_img[:, :, 0] = b_device.copy_to_host().astype(np.uint8)
                 result_img[:, :, 1] = g_device.copy_to_host().astype(np.uint8)
@@ -108,7 +109,7 @@ async def process_image(input_path: str, output_path: str) -> None:
                     executor,
                     adjust_brightness,
                     result_img,
-                    1.3
+                    brightness_multiplier
                 )
 
             # 填充白色背景
