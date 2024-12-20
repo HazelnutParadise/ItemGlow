@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.12 \
     python3-pip \
+    python3-venv \
     libgl1 \
     libglib2.0-0 \
     cmake \
@@ -15,8 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 複製需要的檔案
 COPY . .
 
-# 安裝 Python 套件
-RUN pip3 install --no-cache-dir -r requirements.txt
+# 建立虛擬環境
+RUN python3 -m venv /app/venv
+
+# 啟用虛擬環境並安裝 Python 套件
+RUN /app/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 # 容器啟動指令
-CMD ["python3", "webui.py"]
+CMD ["/app/venv/bin/python", "webui.py"]
