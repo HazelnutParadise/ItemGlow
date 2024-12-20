@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 ADD main.py /app
 ADD webui.py /app
 ADD white_balance.py /app
-ADD requirements-gpu.txt /app
+ADD requirements.txt /app
 ADD favicon.ico /app
 
 # 安裝 Python 套件
