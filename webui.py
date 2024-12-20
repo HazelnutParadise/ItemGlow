@@ -55,29 +55,34 @@ async def process_files(files: Any) -> str:
         return output_path
 
 def launch_ui():
-    with gr.Blocks() as app:
+    with gr.Blocks(css="body{max-width: 800px;align-self: center;}") as app:
         app.title = "ItemGlow 商品照片優化器 - 榛果繽紛樂"
         app.head = "<meta name=\"description\" content=\"ItemGlow 是一個專為電商賣家設計的商品照優化器，可自動去背、調整色溫、飽和度、亮度，快速製作商品照片。\">"
-        with gr.Row():
-            gr.Button("前往 榛果繽紛樂", link="https://hazelnut-paradise.com")
+        with gr.Row(variant="panel"):
+            gr.Button("前往 榛果繽紛樂", link="https://hazelnut-paradise.com", icon="https://src.hazelnut-paradise.com/HazelnutParadise-logo.png")
             gr.Button("更多 Web Apps", link="https://apps.hazelnut-paradise.com")
         
-        with gr.Row():
-            gr.HTML(
-                "<h1 style=\"margin-bottom: 0;text-align: center;font-size: clamp(30px, 7vw, 100px);word-wrap: break-word;max-width: 100%;\">ItemGlow</h1>"
-                "<h2 style=\"margin-top: 0;text-align: center;font-size: clamp(22px, 3vw, 40px);\">商品照片優化器</h2>"
-                "<br />"
-                "<div style=\"margin: auto 0;\">"
-                    "<h3 style=\"text-align: start;font-size: clamp(20px, 2vw, 40px);\">專屬於電商賣家</h3>"
-                    "<p style=\"text-align: start;font-size: clamp(16px, 2vw, 20px);\">ItemGlow 可自動將商品照片去背，並調整至合適的色溫、飽和度、亮度，幫助電商賣家輕鬆製作商品照片。</p>"
+        gr.HTML(
+            "<div style=\"margin: 0;padding: 0;display: flex; flex-direction: column; align-items: center;\">"
+                "<div style=\"margin-bottom: 20px;\">"
+                    "<h1 style=\"margin: 0;padding: 0;text-align: center;font-size: clamp(50px, 7vw, 100px);word-wrap: break-word;max-width: 100%;\">ItemGlow</h1>"
+                    "<h2 style=\"margin: 0;padding: 0;margin-bottom: 50px;text-align: center;font-size: clamp(30px, 3vw, 40px);\">商品照片優化器</h2>"
+                    "<h3 style=\"text-align: center;font-size: clamp(20px, 2vw, 40px);\"><i>～讓您的商品閃閃發光～</i></h3>"
                 "</div>"
-            )
-            with gr.Group():
-                gr.HTML(
-                    "<img src=\"https://src.hazelnut-paradise.com/ItemGlow-logo.png\" style=\"display: block;margin-left: auto;margin-right: auto;height: 100%;width:auto;\">"   
-                ),
-                gr.Button("View on GitHub", link="https://github.com/HazelnutParadise/ItemGlow")
-            
+                "<img src=\"https://src.hazelnut-paradise.com/ItemGlow-logo.png\" style=\"height: auto;width:clamp(150px, 100%, 200px);\">"
+            "</div>"
+        ),
+        gr.Button("View on GitHub", link="https://github.com/HazelnutParadise/ItemGlow", variant="huggingface"),
+        gr.HTML("""
+<div id="div-onead-draft"></div>
+
+        """),
+        gr.HTML(
+            "<div style=\"margin: 0;\">"
+                "<h3 style=\"text-align: start;font-size: clamp(20px, 2vw, 40px);\">專屬於電商賣家</h3>"
+                "<p style=\"text-align: start;font-size: clamp(16px, 2vw, 20px);\">ItemGlow 可自動將商品照片去背，並調整至合適的色溫、飽和度、亮度，幫助電商賣家輕鬆製作商品照片。</p>"
+            "</div>"
+        )
         
         with gr.Row():
             file_input = gr.File(

@@ -68,6 +68,8 @@ async def process_image(input_path: str, output_path: str) -> None:
             executor,
             lambda: cv2.imdecode(np.frombuffer(output_image, np.uint8), cv2.IMREAD_UNCHANGED)
         )
+        
+        print("使用CUDA加速" if SUPPORT_CUDA else "使用CPU處理圖片")
 
         # 在線程池中處理圖片
         if len(image_np.shape) == 3 and image_np.shape[2] == 4:  # RGBA 圖片
