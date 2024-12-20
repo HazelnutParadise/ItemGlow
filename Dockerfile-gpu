@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
 
 # 設定工作目錄
 WORKDIR /app
@@ -12,25 +12,6 @@ RUN apt-get update && apt-get install -y \
     git \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# 安裝支援 GPU 的 OpenCV
-RUN git clone https://github.com/opencv/opencv.git && \
-    git clone https://github.com/opencv/opencv_contrib.git && \
-    mkdir -p opencv/build && cd opencv/build && \
-    cmake -D CMAKE_BUILD_TYPE=Release \
-          -D CMAKE_INSTALL_PREFIX=/usr/local \
-          -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
-          -D WITH_CUDA=ON \
-          -D ENABLE_FAST_MATH=1 \
-          -D CUDA_FAST_MATH=1 \
-          -D WITH_CUBLAS=1 \
-          -D OPENCV_DNN_CUDA=ON \
-          -D BUILD_EXAMPLES=OFF \
-          -D BUILD_TESTS=OFF \
-          .. && \
-    make -j$(nproc) && \
-    make install && \
-    ldconfig
-
 # 複製需要的檔案
 ADD main.py /app
 ADD webui.py /app
@@ -39,7 +20,7 @@ ADD requirements-gpu.txt /app
 ADD favicon.ico /app
 
 # 安裝 Python 套件
-RUN pip3 install --no-cache-dir -r requirements-gpu.txt
+RUN pip3 install --no-cache-dir -r requirements.txt
 
 # 容器啟動指令
 CMD ["python3", "webui.py"]

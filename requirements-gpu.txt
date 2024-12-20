@@ -1,7 +1,0 @@
-onnxruntime
-rembg
-numpy
-aiofiles
-aiohttp
-asyncer
-gradio

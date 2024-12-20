@@ -8,15 +8,14 @@ from typing import Any
 from tqdm import tqdm
 import numpy as np
 from white_balance import apply_multiple_white_balance
-from numba import jit
+from numba import jit, cuda
 
 # 建立線程池
 executor = ThreadPoolExecutor()
 
-SUPPORT_CUDA = False
-
 # 檢查CUDA支援
-print(f"CUDA支援狀態: {'可用' if (SUPPORT_CUDA := cv2.cuda.getCudaEnabledDeviceCount() > 0) else '不可用'}")
+SUPPORT_CUDA = cuda.is_available()
+print(f"CUDA支援狀態: {'可用' if SUPPORT_CUDA else '不可用'}")
 
 @jit(nopython=True)
 def adjust_brightness(image: np.ndarray, factor: float) -> np.ndarray:
@@ -32,6 +31,14 @@ def fill_white_background(result_img: np.ndarray, alpha_factor: np.ndarray) -> n
             255
         ).astype(np.uint8)
     return white_background
+
+@cuda.jit
+def adjust_brightness_cuda(b, g, r, factor):
+    i, j = cuda.grid(2)
+    if i < b.shape[0] and j < b.shape[1]:
+        b[i, j] = min(b[i, j] * factor, 255)
+        g[i, j] = min(g[i, j] * factor, 255)
+        r[i, j] = min(r[i, j] * factor, 255)
 
 async def process_image(input_path: str, output_path: str) -> None:
     """
@@ -82,10 +89,20 @@ async def process_image(input_path: str, output_path: str) -> None:
             
             # 調高亮度
             if SUPPORT_CUDA:
-                gpu_img = cv2.cuda_GpuMat()
-                gpu_img.upload(result_img)
-                gpu_img = cv2.cuda.multiply(gpu_img, 1.3)
-                result_img = gpu_img.download()
+                b_device = cuda.to_device(result_img[:, :, 0].astype(np.float32))
+                g_device = cuda.to_device(result_img[:, :, 1].astype(np.float32))
+                r_device = cuda.to_device(result_img[:, :, 2].astype(np.float32))
+
+                threadsperblock = (16, 16)
+                blockspergrid_x = int(np.ceil(result_img.shape[0] / threadsperblock[0]))
+                blockspergrid_y = int(np.ceil(result_img.shape[1] / threadsperblock[1]))
+                blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+                adjust_brightness_cuda[blockspergrid, threadsperblock](b_device, g_device, r_device, 1.3)
+
+                result_img[:, :, 0] = b_device.copy_to_host().astype(np.uint8)
+                result_img[:, :, 1] = g_device.copy_to_host().astype(np.uint8)
+                result_img[:, :, 2] = r_device.copy_to_host().astype(np.uint8)
             else:
                 result_img = await loop.run_in_executor(
                     executor,

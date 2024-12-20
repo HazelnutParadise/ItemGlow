@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 from typing import Any
-from numba import jit
+from numba import jit, cuda
 
 @jit(nopython=True)
 def adjust_channels_gray_world(b: np.ndarray, g: np.ndarray, r: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -45,24 +45,67 @@ def adjust_channels_adaptive(b: np.ndarray, g: np.ndarray, r: np.ndarray) -> tup
 
     return b, g, r
 
+@cuda.jit
+def adjust_channels_perfect_reflector_cuda(b, g, r, max_b, max_g, max_r):
+    i, j = cuda.grid(2)
+    if i < b.shape[0] and j < b.shape[1]:
+        b[i, j] = min(b[i, j] * (255 / max_b), 255)
+        g[i, j] = min(g[i, j] * (255 / max_g), 255)
+        r[i, j] = min(r[i, j] * (255 / max_r), 255)
+
+@cuda.jit
+def adjust_channels_gray_world_cuda(b, g, r, avg_gray, avg_b, avg_g, avg_r):
+    i, j = cuda.grid(2)
+    if i < b.shape[0] and j < b.shape[1]:
+        b[i, j] = min(b[i, j] * (avg_gray / avg_b), 255)
+        g[i, j] = min(g[i, j] * (avg_gray / avg_g), 255)
+        r[i, j] = min(r[i, j] * (avg_gray / avg_r), 255)
+
+@cuda.jit
+def adjust_channels_white_patch_cuda(b, g, r, max_b, max_g, max_r):
+    i, j = cuda.grid(2)
+    if i < b.shape[0] and j < b.shape[1]:
+        b[i, j] = min(b[i, j] * (255 / max_b), 255)
+        g[i, j] = min(g[i, j] * (255 / max_g), 255)
+        r[i, j] = min(r[i, j] * (255 / max_r), 255)
+
+@cuda.jit
+def adjust_channels_adaptive_cuda(b, g, r, avg_gray, avg_b, avg_g, avg_r):
+    i, j = cuda.grid(2)
+    if i < b.shape[0] and j < b.shape[1]:
+        b[i, j] = min(b[i, j] * (avg_gray / avg_b), 255)
+        g[i, j] = min(g[i, j] * (avg_gray / avg_g), 255)
+        r[i, j] = min(r[i, j] * (avg_gray / avg_r), 255)
+
 # 灰度世界假設白平衡
 def gray_world_white_balance(image: Any, support_cuda: bool) -> Any:
     if support_cuda:
-        gpu_image = cv2.cuda_GpuMat()
-        gpu_image.upload(image)
+        b, g, r = cv2.split(image)
+        b = b.astype(np.float32)
+        g = g.astype(np.float32)
+        r = r.astype(np.float32)
 
-        b, g, r = cv2.cuda.split(gpu_image)
-        avg_b = cv2.cuda.mean(b)[0]
-        avg_g = cv2.cuda.mean(g)[0]
-        avg_r = cv2.cuda.mean(r)[0]
+        avg_b = np.mean(b)
+        avg_g = np.mean(g)
+        avg_r = np.mean(r)
         avg_gray = (avg_b + avg_g + avg_r) / 3
 
-        b = cv2.cuda.multiply(b, avg_gray / avg_b)
-        g = cv2.cuda.multiply(g, avg_gray / avg_g)
-        r = cv2.cuda.multiply(r, avg_gray / avg_r)
+        b_device = cuda.to_device(b)
+        g_device = cuda.to_device(g)
+        r_device = cuda.to_device(r)
 
-        gpu_result = cv2.cuda.merge([b, g, r])
-        result = gpu_result.download()
+        threadsperblock = (16, 16)
+        blockspergrid_x = int(np.ceil(b.shape[0] / threadsperblock[0]))
+        blockspergrid_y = int(np.ceil(b.shape[1] / threadsperblock[1]))
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+        adjust_channels_gray_world_cuda[blockspergrid, threadsperblock](b_device, g_device, r_device, avg_gray, avg_b, avg_g, avg_r)
+
+        b = b_device.copy_to_host().astype(np.uint8)
+        g = g_device.copy_to_host().astype(np.uint8)
+        r = r_device.copy_to_host().astype(np.uint8)
+
+        result = cv2.merge([b, g, r])
     else:
         b, g, r = cv2.split(image)
         b, g, r = adjust_channels_gray_world(b, g, r)
@@ -73,20 +116,31 @@ def gray_world_white_balance(image: Any, support_cuda: bool) -> Any:
 # 完美反射假設白平衡
 def perfect_reflector_white_balance(image: Any, support_cuda: bool) -> Any:
     if support_cuda:
-        gpu_image = cv2.cuda_GpuMat()
-        gpu_image.upload(image)
+        b, g, r = cv2.split(image)
+        b = b.astype(np.float32)
+        g = g.astype(np.float32)
+        r = r.astype(np.float32)
 
-        b, g, r = cv2.cuda.split(gpu_image)
-        max_b = cv2.cuda.minMaxLoc(b)[1]
-        max_g = cv2.cuda.minMaxLoc(g)[1]
-        max_r = cv2.cuda.minMaxLoc(r)[1]
+        max_b = np.max(b)
+        max_g = np.max(g)
+        max_r = np.max(r)
 
-        b = cv2.cuda.multiply(b, 255 / max_b)
-        g = cv2.cuda.multiply(g, 255 / max_g)
-        r = cv2.cuda.multiply(r, 255 / max_r)
+        b_device = cuda.to_device(b)
+        g_device = cuda.to_device(g)
+        r_device = cuda.to_device(r)
 
-        gpu_result = cv2.cuda.merge([b, g, r])
-        result = gpu_result.download()
+        threadsperblock = (16, 16)
+        blockspergrid_x = int(np.ceil(b.shape[0] / threadsperblock[0]))
+        blockspergrid_y = int(np.ceil(b.shape[1] / threadsperblock[1]))
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+        adjust_channels_perfect_reflector_cuda[blockspergrid, threadsperblock](b_device, g_device, r_device, max_b, max_g, max_r)
+
+        b = b_device.copy_to_host().astype(np.uint8)
+        g = g_device.copy_to_host().astype(np.uint8)
+        r = r_device.copy_to_host().astype(np.uint8)
+
+        result = cv2.merge([b, g, r])
     else:
         b, g, r = cv2.split(image)
         b, g, r = adjust_channels_perfect_reflector(b, g, r)
@@ -97,20 +151,31 @@ def perfect_reflector_white_balance(image: Any, support_cuda: bool) -> Any:
 # 白點法白平衡
 def white_patch_white_balance(image: Any, support_cuda: bool) -> Any:
     if support_cuda:
-        gpu_image = cv2.cuda_GpuMat()
-        gpu_image.upload(image)
+        b, g, r = cv2.split(image)
+        b = b.astype(np.float32)
+        g = g.astype(np.float32)
+        r = r.astype(np.float32)
 
-        b, g, r = cv2.cuda.split(gpu_image)
-        max_b = cv2.cuda.minMaxLoc(b)[1]
-        max_g = cv2.cuda.minMaxLoc(g)[1]
-        max_r = cv2.cuda.minMaxLoc(r)[1]
+        max_b = np.max(b)
+        max_g = np.max(g)
+        max_r = np.max(r)
 
-        b = cv2.cuda.multiply(b, 255 / max_b)
-        g = cv2.cuda.multiply(g, 255 / max_g)
-        r = cv2.cuda.multiply(r, 255 / max_r)
+        b_device = cuda.to_device(b)
+        g_device = cuda.to_device(g)
+        r_device = cuda.to_device(r)
 
-        gpu_result = cv2.cuda.merge([b, g, r])
-        result = gpu_result.download()
+        threadsperblock = (16, 16)
+        blockspergrid_x = int(np.ceil(b.shape[0] / threadsperblock[0]))
+        blockspergrid_y = int(np.ceil(b.shape[1] / threadsperblock[1]))
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+        adjust_channels_white_patch_cuda[blockspergrid, threadsperblock](b_device, g_device, r_device, max_b, max_g, max_r)
+
+        b = b_device.copy_to_host().astype(np.uint8)
+        g = g_device.copy_to_host().astype(np.uint8)
+        r = r_device.copy_to_host().astype(np.uint8)
+
+        result = cv2.merge([b, g, r])
     else:
         b, g, r = cv2.split(image)
         b, g, r = adjust_channels_white_patch(b, g, r)
@@ -121,21 +186,32 @@ def white_patch_white_balance(image: Any, support_cuda: bool) -> Any:
 # 自適應白平衡
 def adaptive_white_balance(image: Any, support_cuda: bool) -> Any:
     if support_cuda:
-        gpu_image = cv2.cuda_GpuMat()
-        gpu_image.upload(image)
+        b, g, r = cv2.split(image)
+        b = b.astype(np.float32)
+        g = g.astype(np.float32)
+        r = r.astype(np.float32)
 
-        b, g, r = cv2.cuda.split(gpu_image)
-        avg_b = cv2.cuda.mean(b)[0]
-        avg_g = cv2.cuda.mean(g)[0]
-        avg_r = cv2.cuda.mean(r)[0]
+        avg_b = np.mean(b)
+        avg_g = np.mean(g)
+        avg_r = np.mean(r)
         avg_gray = (avg_b + avg_g + avg_r) / 3
 
-        b = cv2.cuda.multiply(b, avg_gray / avg_b)
-        g = cv2.cuda.multiply(g, avg_gray / avg_g)
-        r = cv2.cuda.multiply(r, avg_gray / avg_r)
+        b_device = cuda.to_device(b)
+        g_device = cuda.to_device(g)
+        r_device = cuda.to_device(r)
 
-        gpu_result = cv2.cuda.merge([b, g, r])
-        result = gpu_result.download()
+        threadsperblock = (16, 16)
+        blockspergrid_x = int(np.ceil(b.shape[0] / threadsperblock[0]))
+        blockspergrid_y = int(np.ceil(b.shape[1] / threadsperblock[1]))
+        blockspergrid = (blockspergrid_x, blockspergrid_y)
+
+        adjust_channels_adaptive_cuda[blockspergrid, threadsperblock](b_device, g_device, r_device, avg_gray, avg_b, avg_g, avg_r)
+
+        b = b_device.copy_to_host().astype(np.uint8)
+        g = g_device.copy_to_host().astype(np.uint8)
+        r = r_device.copy_to_host().astype(np.uint8)
+
+        result = cv2.merge([b, g, r])
     else:
         b, g, r = cv2.split(image)
         b, g, r = adjust_channels_adaptive(b, g, r)
