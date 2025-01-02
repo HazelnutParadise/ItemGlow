@@ -86,11 +86,11 @@ async def process_image(input_path: str, output_path: str) -> None:
                 executor,
                 increase_saturation,
                 result_img,
-                1.3
+                1.1
             )
             
             # 調高亮度
-            brightness_multiplier = 1.8
+            brightness_multiplier = 1.3
             if SUPPORT_CUDA:
                 b_device = cuda.to_device(result_img[:, :, 0].astype(np.float32))
                 g_device = cuda.to_device(result_img[:, :, 1].astype(np.float32))
