@@ -5,11 +5,9 @@ services:
     ports:
       - "6660:7860"
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    runtime: nvidia
 
 networks:
   default:
